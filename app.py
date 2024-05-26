@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy   # SQLite数据库 拓展类
 from flask import Flask, render_template
+from flask import request, url_for, redirect, flash
 import os
 import click
 
@@ -37,7 +38,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.root_pat
 # app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(app.root_path, 'data.db')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False    # 关闭对模型修改的监视
-
+app.config['SECRET_KEY'] = 'dev'    # 为什么要设置这个与flash有关。等同于 app.secret_key = 'dev'，出于安全考虑，这个值应当设置为随机字符，且不应该明文写在代码里
 db = SQLAlchemy(app)    # 初始化拓展，传入程序示例app
 
 
@@ -104,7 +105,62 @@ def internal_server_error(e):
     return render_template('errors/500.html'), 500
 
 
-@app.route('/')
+# 默认只接受 GET 请求；需要用methods属性指定同时接受 GET 和 POST 请求。两种方法的请求有不同的处理逻辑：对于 GET 请求，返回渲染后的页面；对于 POST 请求，则获取提交的表单数据并保存
+@app.route('/', methods=['GET', 'POST'])
 def index():
+    # Flask 会在请求触发后把请求信息放到 request 对象里
+    # 因为它在请求触发时才会包含数据，所以你只能在视图函数内部调用它。它包含请求相关的所有信息，比如请求的路径（request.path）、请求的方法（request.method）、表单数据（request.form）、查询字符串（request.args）等等
+    # request.form 是一个特殊的字典，用表单字段的 name 属性值可以获取用户填入的对应数据
+    if request.method == 'POST':
+        # 获取数据
+        title = request.form.get('title')
+        year = request.form.get('year')
+        # 验证数据，通过在 <input> 元素内添加 required 属性实现的验证（客户端验证）并不完全可靠
+        if not title or not year or len(year) != 4 or len(title) > 60:
+            flash('Invalid input.')
+            return redirect(url_for('index'))
+        # 保存表单数据至数据库
+        movie = Movie(title=title, year=year)
+        db.session.add(movie)
+        db.session.commit()
+        # flash消息 页面上的提示信息；其中 flash() 函数用来在视图函数里向模板传递提示消息，get_flashed_messages() 函数则用来在模板中获取提示消息
+        # flash() 函数在内部会把消息存储到 Flask 提供的 session 对象里。session 用来在请求间存储数据，它会把数据签名后存储到浏览器的 Cookie 中，所以我们需要设置签名所需的密钥
+
+        flash('Item created.')  # 成功创建的提示
+        return redirect(url_for('index'))   # 重定向回主页
+
     movies = Movie.query.all()  # 读取所有电影记录
     return render_template('index.html', movies=movies)
+
+
+# 编辑条目
+# <int:movie_id> 部分表示 URL 变量，而 int 则是将变量转换成整型的 URL 变量转换器。在生成这个视图的 URL 时，我们也需要传入对应的变量。
+# movie_id 变量是电影条目记录在数据库中的主键值
+@app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
+def edit(movie_id):
+    movie = Movie.query.get_or_404(movie_id)    # 找到记录返回记录，若没找到则返回404错误响应
+
+    if request.method == 'POST':    # 处理编辑表单的提交请求
+        title = request.form['title']
+        year = request.form['year']
+        if not title or not year or len(year) != 4 or len(title) > 60:
+            flash('Invalid input.')
+            return redirect(url_for('index'))
+        # 数据更新
+        movie.title = title
+        movie.year = year
+        db.session.commit()
+        flash('Item updated.')
+        return redirect(url_for('index'))
+    return render_template('edit.html', movie=movie)    # 传入被编辑的电影记录，why? 便于更新数据显示，在模板里，通过表单 <input> 元素的 value 属性即可将它们提前写到输入框里
+
+
+# 删除条目
+# 为了安全的考虑，我们一般会使用 POST 请求来提交删除请求，也就是使用表单来实现（而不是创建删除链接）
+@app.route('/movie/delete/<int:movie_id>', methods=['POST'])
+def delete(movie_id):
+    movie = Movie.query.get_or_404(movie_id)
+    db.session.delete(movie)
+    db.session.commit()
+    flash('Item deleted.')
+    return redirect(url_for('index'))
