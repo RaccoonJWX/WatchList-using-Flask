@@ -80,8 +80,31 @@ def forge():
     click.echo('Done.')         # 输出提示信息
 
 
+# 模块上下文处理函数
+# 这个函数返回的变量（以字典键值对的形式）将会统一注入到每一个模板的上下文环境中
+@app.context_processor
+def inject_user():
+    user = User.query.first()
+    return dict(user=user)  # 返回字典，等同于 return {'user' : user}
+
+
+# 这个函数返回了状态码作为第二个参数，而普通的视图函数返回的是默认的200状态码
+@app.errorhandler(404)  # 传入要处理的错误代码
+def page_not_found(e):  # 接受异常对象作为参数
+    return render_template('errors/404.html'), 404  # 返回模块和状态码
+
+
+@app.errorhandler(400)
+def bad_request(e):
+    return render_template('errors/400.html'), 400
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('errors/500.html'), 500
+
+
 @app.route('/')
 def index():
-    user = User.query.first()   # 读取用户记录
     movies = Movie.query.all()  # 读取所有电影记录
-    return render_template('index.html', user=user,movies=movies)
+    return render_template('index.html', movies=movies)
