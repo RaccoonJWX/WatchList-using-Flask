@@ -1,10 +1,26 @@
 from flask_sqlalchemy import SQLAlchemy   # SQLite数据库 拓展类
 from flask import Flask, render_template
 from flask import request, url_for, redirect, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import click
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required
+from flask_login import current_user
 
 app = Flask(__name__)
+
+# 实例化
+login_manager = LoginManager(app)
+
+
+# 用户加载回调函数
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+# 如果未登录的用户访问对应的 URL，Flask-Login 会把用户重定向到登录页面，并显示一个错误提示
+login_manager.login_view = 'login'
 
 
 # 创建数据库表
@@ -14,14 +30,14 @@ app = Flask(__name__)
 # >>> db.drop_all()     # 删除创建的表
 # 方法二：自定义命令initdb
 # 可以使用如下两种指令：flask initdb 和 flask initdb --drop
-# @app.cli.command()  # 注册为命令，可以传入name参数来自定义命令
-# @click.option('--drop', is_flag=True, help='Create after drop.')    # 设置选项
-# def initdb(drop):
-#     """Initialize the database."""
-#     if drop:    # 判断是否输入了选项
-#         db.drop_all()
-#     db.create_all()
-#     click.echo('Initialized database.')     # 输出提示信息
+@app.cli.command()  # 注册为命令，可以传入name参数来自定义命令
+@click.option('--drop', is_flag=True, help='Create after drop.')    # 设置选项
+def initdb(drop):
+    """Initialize the database."""
+    if drop:    # 判断是否输入了选项
+        db.drop_all()
+    db.create_all()
+    click.echo('Initialized database.')     # 输出提示信息
 
 
 # SQLite的这个变量格式为sqlite:///数据库文件的绝对地址（Windows下三个/，Linux下四个/）
@@ -43,9 +59,20 @@ db = SQLAlchemy(app)    # 初始化拓展，传入程序示例app
 
 
 # 创建数据库模型
-class User(db.Model):   # 表名将会是user（自动生成、小写处理）
+# UserMixin 是提供了current_user是当前登录账户；is_authenticated 属性用于判断是否已登录
+class User(db.Model, UserMixin):   # 表名将会是user（自动生成、小写处理）
     id = db.Column(db.Integer, primary_key=True)   # 主键
     name = db.Column(db.String(20))     # 名字
+    username = db.Column(db.String(20))     # 用户名
+    password_hash = db.Column(db.String(128))     # 密码哈希值
+
+    # 生成密码哈希值
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    # 验证密码哈希值
+    def validate_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class Movie(db.Model):  # 表名：movie
@@ -112,6 +139,9 @@ def index():
     # 因为它在请求触发时才会包含数据，所以你只能在视图函数内部调用它。它包含请求相关的所有信息，比如请求的路径（request.path）、请求的方法（request.method）、表单数据（request.form）、查询字符串（request.args）等等
     # request.form 是一个特殊的字典，用表单字段的 name 属性值可以获取用户填入的对应数据
     if request.method == 'POST':
+        # 对创建条目进行认证保护不能直接用login_request，而需要用POST请求中的current_user的is_authenticated属性
+        if not current_user.is_authenticated:
+            return redirect(url_for('index'))
         # 获取数据
         title = request.form.get('title')
         year = request.form.get('year')
@@ -137,6 +167,7 @@ def index():
 # <int:movie_id> 部分表示 URL 变量，而 int 则是将变量转换成整型的 URL 变量转换器。在生成这个视图的 URL 时，我们也需要传入对应的变量。
 # movie_id 变量是电影条目记录在数据库中的主键值
 @app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
+@login_required
 def edit(movie_id):
     movie = Movie.query.get_or_404(movie_id)    # 找到记录返回记录，若没找到则返回404错误响应
 
@@ -158,9 +189,87 @@ def edit(movie_id):
 # 删除条目
 # 为了安全的考虑，我们一般会使用 POST 请求来提交删除请求，也就是使用表单来实现（而不是创建删除链接）
 @app.route('/movie/delete/<int:movie_id>', methods=['POST'])
+@login_required
 def delete(movie_id):
     movie = Movie.query.get_or_404(movie_id)
     db.session.delete(movie)
     db.session.commit()
     flash('Item deleted.')
     return redirect(url_for('index'))
+
+
+# 生成管理员账户
+# option修饰器用于接受输入用户名和密码
+@app.cli.command()
+@click.option('--username', prompt=True, help='The username used to login.')
+@click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True, help='The password used to login.')
+def admin(username, password):
+    """Create user."""
+    db.create_all()
+
+    user = User.query.first()
+    if user is not None:
+        click.echo('Updating user...')
+        user.username = username
+        user.set_password(password)
+    else:
+        click.echo('Creating user...')
+        user = User(username=username, name='Admin')
+        user.set_password(password)
+        db.session.add(user)
+
+    db.session.commit()
+    click.echo('Done.')
+
+
+# 用户登录
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if not username or not password:
+            flash('Invalid input.')
+            return redirect(url_for('login'))
+
+        user = User.query.first()
+        if username == user.username and user.validate_password(password):
+            login_user(user)
+            return redirect(url_for('index'))
+
+        flash('Invalid username or password.')
+        return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+
+# 登出
+@app.route('/logout')
+@login_required       # 用于视图保护，登录保护，没有登录无法进行很多操作.如果未登录的用户访问对应的 URL，Flask-Login 会把用户重定向到登录页面，并显示一个错误提示
+def logout():
+    logout_user()
+    flash('Goodbye.')
+    return redirect(url_for('index'))
+
+
+# 设置 可修改用户名
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        name = request.form['name']
+
+        if not name or len(name) > 20:
+            flash('Invalid input.')
+            return redirect(url_for('settings'))
+        current_user.name = name
+        db.session.commit()
+        # current_user 会返回当前登录用户的数据库记录对象
+        # 等同于下面的用法
+        # user = User.query.first()
+        # user.name = name
+        flash('Settings updated.')
+        return redirect(url_for('index'))
+
+    return render_template('settings.html')

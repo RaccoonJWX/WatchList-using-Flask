@@ -26,6 +26,12 @@
     </nav>
     {# 用于在子模版中插入主体内容的content块 #}
     {% block content %}{% endblock %}
+    {% if current_user.is_authenticated %}
+        <li><a href="{{ url_for('settings') }}">Settings</a></li>
+        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+    {% else %}
+        <li><a href="{{ url_for('login') }}">Login</a></li>
+    {% endif %}
     <footer>
         <small>&copy; 2018 <a href="http://helloflask.com/book/3">HelloFlask</a></small>
     </footer>
