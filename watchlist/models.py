@@ -19,7 +19,8 @@ class User(db.Model, UserMixin):   # 表名将会是user（自动生成、小写
         return check_password_hash(self.password_hash, password)
 
 
-class Movie(db.Model):  # 表名：movie
+class Book(db.Model):  # 表名：movie
     id = db.Column(db.Integer, primary_key=True)    # Column的属性除了primary_key以外还有nullable, index, unique, default等
-    title = db.Column(db.String(60))    # 电影标题
-    year = db.Column(db.String(4))      # 电影年份
+    title = db.Column(db.String(60))        # 书的标题
+    writer = db.Column(db.String(60))       # 书的作者
+    filename = db.Column(db.String(64))

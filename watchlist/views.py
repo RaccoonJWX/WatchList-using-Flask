@@ -2,7 +2,7 @@
 from watchlist import app, db
 from flask import request, flash, url_for, render_template, redirect
 from flask_login import current_user, login_required, login_user, logout_user
-from watchlist.models import Movie, User
+from watchlist.models import Book, User
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -16,13 +16,13 @@ def index():
             return redirect(url_for('index'))
         # 获取数据
         title = request.form.get('title')
-        year = request.form.get('year')
+        writer = request.form.get('writer')
         # 验证数据，通过在 <input> 元素内添加 required 属性实现的验证（客户端验证）并不完全可靠
-        if not title or not year or len(year) != 4 or len(title) > 60:
+        if not title or not writer or len(writer) > 60 or len(title) > 60:
             flash('Invalid input.')
             return redirect(url_for('index'))
         # 保存表单数据至数据库
-        movie = Movie(title=title, year=year)
+        movie = Book(title=title, year=writer)
         db.session.add(movie)
         db.session.commit()
         # flash消息 页面上的提示信息；其中 flash() 函数用来在视图函数里向模板传递提示消息，get_flashed_messages() 函数则用来在模板中获取提示消息
@@ -31,40 +31,40 @@ def index():
         flash('Item created.')  # 成功创建的提示
         return redirect(url_for('index'))   # 重定向回主页
 
-    movies = Movie.query.all()  # 读取所有电影记录
-    return render_template('index.html', movies=movies)
+    books = Book.query.all()  # 读取所有电影记录
+    return render_template('index.html', books=books)
 
 
 # 编辑条目
 # <int:movie_id> 部分表示 URL 变量，而 int 则是将变量转换成整型的 URL 变量转换器。在生成这个视图的 URL 时，我们也需要传入对应的变量。
 # movie_id 变量是电影条目记录在数据库中的主键值
-@app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
+@app.route('/book/edit/<int:book_id>', methods=['GET', 'POST'])
 @login_required
-def edit(movie_id):
-    movie = Movie.query.get_or_404(movie_id)    # 找到记录返回记录，若没找到则返回404错误响应
+def edit(book_id):
+    book = Book.query.get_or_404(book_id)    # 找到记录返回记录，若没找到则返回404错误响应
 
     if request.method == 'POST':    # 处理编辑表单的提交请求
         title = request.form['title']
-        year = request.form['year']
-        if not title or not year or len(year) != 4 or len(title) > 60:
+        writer = request.form['writer']
+        if not title or not writer or len(writer) > 60 or len(title) > 60:
             flash('Invalid input.')
             return redirect(url_for('index'))
         # 数据更新
-        movie.title = title
-        movie.year = year
+        book.title = title
+        book.writer = writer
         db.session.commit()
         flash('Item updated.')
         return redirect(url_for('index'))
-    return render_template('edit.html', movie=movie)
+    return render_template('edit.html', book=book)
 
 
 # 删除条目
 # 为了安全的考虑，我们一般会使用 POST 请求来提交删除请求，也就是使用表单来实现（而不是创建删除链接）
-@app.route('/movie/delete/<int:movie_id>', methods=['POST'])
+@app.route('/book/delete/<int:book_id>', methods=['POST'])
 @login_required
-def delete(movie_id):
-    movie = Movie.query.get_or_404(movie_id)
-    db.session.delete(movie)
+def delete(book_id):
+    book = Book.query.get_or_404(book_id)
+    db.session.delete(book)
     db.session.commit()
     flash('Item deleted.')
     return redirect(url_for('index'))

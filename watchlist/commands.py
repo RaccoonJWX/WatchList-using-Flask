@@ -1,7 +1,7 @@
 # 命令函数
 import click
 from watchlist import app, db
-from watchlist.models import User, Movie
+from watchlist.models import User, Book
 
 
 @app.cli.command()  # 注册为命令，可以传入name参数来自定义命令
@@ -18,24 +18,20 @@ def initdb(drop):
 def forge():
     """Generate fake data"""
     db.create_all()
-    name = 'Grey Li'
-    movies = [
-        {'title': 'My Neighbor Totoro', 'year': '1988'},
-        {'title': 'Dead Poets Society', 'year': '1989'},
-        {'title': 'A Perfect World', 'year': '1993'},
-        {'title': 'Leon', 'year': '1994'},
-        {'title': 'Mahjong', 'year': '1996'},
-        {'title': 'Swallowtail Butterfly', 'year': '1996'},
-        {'title': 'King of Comedy', 'year': '1999'},
-        {'title': 'Devils on the Doorstep', 'year': '1999'},
-        {'title': 'WALL-E', 'year': '2008'},
-        {'title': 'The Pork of Music', 'year': '2012'},
+    name = 'Raccoon'
+    books = [
+        {'title': '窗边的小豆豆', 'writer': '黑柳彻子'},
+        {'title': '秋园', 'writer': '杨本芬'},
+        {'title': '鼠疫', 'writer': '阿尔贝·加缪'},
+        {'title': '我的天才女友', 'writer': '埃莱娜·费兰特'},
+        {'title': '一个叫欧维的男人决定去死', 'writer': '弗雷德里克·巴克曼'},
+        {'title': '失踪的孩子', 'writer': '埃莱娜·费兰特'},
     ]
     user = User(name=name)
     db.session.add(user)    # 把新创建的记录添加到数据库会话
-    for m in movies:
-        movie = Movie(title=m['title'], year=m['year'])
-        db.session.add(movie)    # 把新创建的记录添加到数据库会话
+    for m in books:
+        book = Book(title=m['title'], writer=m['writer'])
+        db.session.add(book)    # 把新创建的记录添加到数据库会话
     db.session.commit()
     click.echo('Done.')         # 输出提示信息
 
