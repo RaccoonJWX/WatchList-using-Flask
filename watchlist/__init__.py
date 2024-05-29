@@ -1,4 +1,3 @@
-# 包构造文件， 创建程序实例
 import os
 import sys
 

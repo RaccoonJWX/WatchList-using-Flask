@@ -1,4 +1,3 @@
-# 视图函数
 from watchlist import app, db
 from flask import request, flash, url_for, render_template, redirect
 from flask_login import current_user, login_required, login_user, logout_user
@@ -12,9 +11,6 @@ import os
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Flask 会在请求触发后把请求信息放到 request 对象里
-    # 因为它在请求触发时才会包含数据，所以你只能在视图函数内部调用它。它包含请求相关的所有信息，比如请求的路径（request.path）、请求的方法（request.method）、表单数据（request.form）、查询字符串（request.args）等等
-    # request.form 是一个特殊的字典，用表单字段的 name 属性值可以获取用户填入的对应数据
     if request.method == 'POST':
         # 对创建条目进行认证保护不能直接用login_request，而需要用POST请求中的current_user的is_authenticated属性
         if not current_user.is_authenticated:
@@ -40,7 +36,7 @@ def index():
         flash('Item created.')  # 成功创建的提示
         return redirect(url_for('index'))   # 重定向回主页
 
-    books = Book.query.all()  # 读取所有电影记录
+    books = Book.query.all()  # 读取所有书目记录
     return render_template('index.html', books=books)
 
 
@@ -54,7 +50,7 @@ def upload():
         return redirect(url_for('index'))
 
     basepath = os.path.dirname(__file__)
-    upload_path = os.path.join(basepath, 'books', file.filename)
+    upload_path = os.path.join(basepath, 'static/books', file.filename)
 
     exist_book = Book.query.filter_by(filepath=upload_path).first()
     if exist_book is not None:
@@ -69,14 +65,14 @@ def upload():
 
     author = book.get_metadata('DC', 'creator')[0][0]
 
-    is_exist = Book.query.filter((Book.title==title3) & (Book.writer==author)).first()
+    is_exist = Book.query.filter((Book.title == title3) & (Book.writer == author)).first()
     if is_exist:
         is_exist.filepath = upload_path
     else:
         book = Book(title=title3, writer=author, filepath=upload_path)
         db.session.add(book)
     db.session.commit()
-    flash('upload success.')  # 成功创建的提示
+    flash('Upload success.')  # 成功创建的提示
     return redirect(url_for('index'))  # 重定向回主页
 
 
@@ -85,7 +81,7 @@ def upload():
 def download(book_id):
     book = Book.query.get_or_404(book_id)
     file_path = book.filepath
-    flash('download success.')
+    flash('Download success.')
     return send_file(file_path, as_attachment=True)
 
 
@@ -150,7 +146,7 @@ def login():
 
 # 登出
 @app.route('/logout')
-@login_required       # 用于视图保护，登录保护，没有登录无法进行很多操作.如果未登录的用户访问对应的 URL，Flask-Login 会把用户重定向到登录页面，并显示一个错误提示
+@login_required       # 用于视图保护，登录保护
 def logout():
     logout_user()
     flash('Goodbye.')
@@ -167,12 +163,9 @@ def settings():
         if not name or len(name) > 20:
             flash('Invalid input.')
             return redirect(url_for('settings'))
+        # current_user 会返回当前登录用户的数据库记录对象
         current_user.name = name
         db.session.commit()
-        # current_user 会返回当前登录用户的数据库记录对象
-        # 等同于下面的用法
-        # user = User.query.first()
-        # user.name = name
         flash('Settings updated.')
         return redirect(url_for('index'))
 

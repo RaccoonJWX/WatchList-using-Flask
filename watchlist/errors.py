@@ -1,4 +1,3 @@
-# 错误处理函数
 from watchlist import app
 from flask import render_template
 
