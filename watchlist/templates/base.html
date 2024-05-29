@@ -5,7 +5,7 @@
     {% block head %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">      {# meta元素用于设置页面的视口 页面根据设备的宽度来自动缩放页面，这样会让移动设备拥有更好的浏览体验#}
-    <title>{{ user.name }}'s Watchlist</title>
+    <title>{{ user.name }}的心愿书单</title>
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css">
     {% endblock %}
@@ -16,7 +16,7 @@
     {% endfor%}
     <h2>
         <img alt="Avatar" class="avatar" src="{{ url_for('static', filename='images/avatar.png') }}">
-        {{ user.name }}'s Watchlist'
+        {{ user.name }}的心愿书单
     </h2>
     {# 导航栏 #}
     <nav>
@@ -33,7 +33,7 @@
     {# 用于在子模版中插入主体内容的content块 #}
     {% block content %}{% endblock %}
     <footer>
-        <small>&copy; 2018 <a href="http://helloflask.com/book/3">HelloFlask</a></small>
+        <small>&copy; 2024 <a href="https://github.com/RaccoonJWX/WebLearn">RaccoonJWX</a></small>
     </footer>
 </body>
 </html>

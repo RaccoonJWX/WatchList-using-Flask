@@ -67,7 +67,7 @@ def upload():
     title_ = re.sub(r'（.*?）', '', title)
     author = book.get_metadata('DC', 'creator')[0][0]
 
-    is_exist = Book.query.filter((title==title_) & (author==author)).first()
+    is_exist = Book.query.filter((Book.title==title_) & (Book.writer==author)).first()
     if is_exist:
         is_exist.filepath = upload_path
     else:
