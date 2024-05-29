@@ -4,6 +4,11 @@ from flask import request, flash, url_for, render_template, redirect
 from flask_login import current_user, login_required, login_user, logout_user
 from watchlist.models import Book, User
 
+from ebooklib import epub
+import re
+from flask import send_file
+import os
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -21,18 +26,65 @@ def index():
         if not title or not writer or len(writer) > 60 or len(title) > 60:
             flash('Invalid input.')
             return redirect(url_for('index'))
+
+        exist_book = Book.query.filter_by(title=title).first()
+        if exist_book is not None:
+            flash('This book already exists.')
+            return redirect(url_for('index'))
+
         # 保存表单数据至数据库
-        movie = Book(title=title, year=writer)
-        db.session.add(movie)
+        book = Book(title=title, writer=writer)
+        db.session.add(book)
         db.session.commit()
-        # flash消息 页面上的提示信息；其中 flash() 函数用来在视图函数里向模板传递提示消息，get_flashed_messages() 函数则用来在模板中获取提示消息
-        # flash() 函数在内部会把消息存储到 Flask 提供的 session 对象里。session 用来在请求间存储数据，它会把数据签名后存储到浏览器的 Cookie 中，所以我们需要设置签名所需的密钥
 
         flash('Item created.')  # 成功创建的提示
         return redirect(url_for('index'))   # 重定向回主页
 
     books = Book.query.all()  # 读取所有电影记录
     return render_template('index.html', books=books)
+
+
+# 上传文件
+@app.route('/upload', methods=['POST'])
+@login_required
+def upload():
+    file = request.files['file']
+    if file.filename == '':
+        flash('No selected file')
+        return redirect(url_for('index'))
+
+    basepath = os.path.dirname(__file__)
+    upload_path = os.path.join(basepath, 'books', file.filename)
+
+    exist_book = Book.query.filter_by(filepath=upload_path).first()
+    if exist_book is not None:
+        flash('This book already exists.')
+        return redirect(url_for('index'))
+
+    file.save(upload_path)
+    book = epub.read_epub(upload_path)
+    title = book.get_metadata('DC', 'title')[0][0]
+    title_ = re.sub(r'（.*?）', '', title)
+    author = book.get_metadata('DC', 'creator')[0][0]
+
+    is_exist = Book.query.filter((title==title_) & (author==author)).first()
+    if is_exist:
+        is_exist.filepath = upload_path
+    else:
+        book = Book(title=title_, writer=author, filepath=upload_path)
+        db.session.add(book)
+    db.session.commit()
+    flash('upload success.')  # 成功创建的提示
+    return redirect(url_for('index'))  # 重定向回主页
+
+
+# 下载文件
+@app.route('/download/<int:book_id>', methods=['GET'])
+def download(book_id):
+    book = Book.query.get_or_404(book_id)
+    file_path = book.filepath
+    flash('download success.')
+    return send_file(file_path, as_attachment=True)
 
 
 # 编辑条目
@@ -66,6 +118,8 @@ def delete(book_id):
     book = Book.query.get_or_404(book_id)
     db.session.delete(book)
     db.session.commit()
+    if book.filepath:
+        os.remove(book.filepath)
     flash('Item deleted.')
     return redirect(url_for('index'))
 

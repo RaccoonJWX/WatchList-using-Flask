@@ -109,6 +109,17 @@ input[type=year] {
     border-radius: 5px;
 }
 
+.disbtn {
+    font-size: 12px;
+    padding: 3px 5px;
+    text-decoration: none;
+    cursor: pointer;
+    background-color: #dc3545;
+    color: black;
+    border: 1px solid #555555;
+    border-radius: 5px;
+}
+
 .btn:hover {
     text-decoration: none;
     background-color: black;
