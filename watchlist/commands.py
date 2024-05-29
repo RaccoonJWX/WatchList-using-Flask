@@ -14,6 +14,7 @@ def initdb(drop):
     click.echo('Initialized database.')     # 输出提示信息
 
 
+# test
 @app.cli.command()
 def forge():
     """Generate fake data"""

@@ -64,14 +64,16 @@ def upload():
     file.save(upload_path)
     book = epub.read_epub(upload_path)
     title = book.get_metadata('DC', 'title')[0][0]
-    title_ = re.sub(r'（.*?）', '', title)
+    title2 = re.sub(r'（.*?）', '', title)
+    title3 = re.sub(r'\(.*?\)', '', title2)
+
     author = book.get_metadata('DC', 'creator')[0][0]
 
-    is_exist = Book.query.filter((Book.title==title_) & (Book.writer==author)).first()
+    is_exist = Book.query.filter((Book.title==title3) & (Book.writer==author)).first()
     if is_exist:
         is_exist.filepath = upload_path
     else:
-        book = Book(title=title_, writer=author, filepath=upload_path)
+        book = Book(title=title3, writer=author, filepath=upload_path)
         db.session.add(book)
     db.session.commit()
     flash('upload success.')  # 成功创建的提示
